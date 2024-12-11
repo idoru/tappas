@@ -5,10 +5,11 @@ from pathlib import Path
 from setuptools import setup, find_packages
 
 # Complicated line to extract RELEASE 20.04/21.04/22.04
-lsb_release = list(filter(lambda x: 'RELEASE' in x,
-                          Path('/etc/lsb-release').read_text().split('\n')))[0].split('=')[1].replace('.', '_')
+#lsb_release = list(filter(lambda x: 'RELEASE' in x,
+#                          Path('/etc/lsb-release').read_text().split('\n')))[0].split('=')[1].replace('.', '_')
 
-required = Path(f'requirements_{lsb_release}.txt').read_text().splitlines()
+# Hardcoded to work with bookworm raspberry pi OS
+required = Path(f'requirements_22_04.txt').read_text().splitlines()
 
 
 def get_tappas_release_version():
