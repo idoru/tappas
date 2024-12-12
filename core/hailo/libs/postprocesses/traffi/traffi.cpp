@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include "traffi.hpp"
+#include "common/nms.hpp"
 
 std::mutex TurnTracker::mutex_;
 
@@ -8,10 +9,9 @@ typedef unsigned int vehicle_id;
 
 class TurnTracker::TurnTrackerPrivate
 {
-  protected:
+  public:
     vehicle_id current_id = 0;
-    std::map<int, vehicle_id> vehicle_id_hailo_unique_ids;
-    std::map<vehicle_id, HailoDetectionPtr> vehicle_id_dets;
+    std::map<int, HailoDetectionPtr> hailo_unique_id_vehicles;
     std::vector<HailoDetectionPtr> vehicle_dets;
 };
 
@@ -26,47 +26,59 @@ TurnTracker &TurnTracker::GetInstance()
 
 HailoDetectionPtr TurnTracker::get_vehicle_det_for_hailo_det(int hailo_id) {
   std::lock_guard<std::mutex> lock(mutex_);
-  auto it = priv->vehicle_id_hailo_unique_ids.find(hailo_id);
-  if (it != priv->vehicle_id_hailo_unique_ids.end()) {
-    auto det_it = priv->vehicle_id_dets.find(it);
-    if (it != priv->vehicle_id_dets.end()) {
-      return it;
-    } else {
-      return NULL;
-    }
+  auto it = priv->hailo_unique_id_vehicles.find(hailo_id);
+  if (it != priv->hailo_unique_id_vehicles.end()) {
+    return it->second;
   }
   return NULL;
 }
 
 HailoDetectionPtr TurnTracker::get_vehicle_det_matching_hailo_det_iou(HailoDetectionPtr hailo_det) {
   std::lock_guard<std::mutex> lock(mutex_);
-  auto bbox = hailo_det.get_bbox();
+  auto a = hailo_det->get_bbox();
   for (auto det : priv->vehicle_dets) {
-    if (common::iou_calc(bbox, det.get_bbox()) > 0.75f) {
+    auto b = det->get_bbox();
+    if ( ((a.xmin() < b.xmin()) && (a.xmax() > b.xmax()))
+       || ((b.xmin() < a.xmin()) && (b.xmax() > a.xmax())) )
+       {
+      if ( ((a.ymin() < b.ymin()) && (a.ymax() > b.ymax()))
+        || ((b.ymin() < a.ymin()) && (b.ymax() > a.ymax())) ) {
+        return det;
+      }
+    }
+    if (common::iou_calc(a, b) > 0.50f) {
       return det;
     }
   }
   return NULL;
 }
 
-HailoDetectionPtr TurnTracker::map_hailo_id_to_vehicle_det(int hailo_id, vehicle_id, HailoDetectionPtr vehicle_det) {
+void TurnTracker::map_hailo_id_to_vehicle_det(int hailo_id, HailoDetectionPtr vehicle_det) {
   std::lock_guard<std::mutex> lock(mutex_);
-  priv->vehicle_dets.emplace_back(vehicle_det);
-  priv->vehicle_id_dets[vehicle_id] = vehicle_det;
-  priv-vehicle_id_hailo_unique_ids[hailo_id] = vehicle_id;
-    std::map<int, vehicle_id> 
+  priv->hailo_unique_id_vehicles[hailo_id] = vehicle_det;
 }
-  //does this id have a mapping to a vehicle detection?
-  //yes -> update vehicle detection bbox
-    //no -> check IoU against existing vehicle detection bboxes
-        //IoU match -> add mapping, update bbox
-        //No IoU match -> add mapping, create detection clone
+
+std::vector<HailoDetectionPtr> TurnTracker::vehicle_detections() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return priv->vehicle_dets;
+}
+
+void TurnTracker::add_vehicle_det(HailoDetectionPtr det) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  det->remove_objects_typed(HAILO_UNIQUE_ID);
+
+  priv->current_id ++;
+  auto newid = std::make_shared<HailoUniqueID>(HailoUniqueID(priv->current_id));
+  det->add_object(newid);
+  priv->vehicle_dets.emplace_back(det);
+}
 // Default filter function
 void filter(HailoROIPtr roi)
 {
   std::cout << "----------------------- " << std::endl;
 
   std::map<int, HailoDetectionPtr> candidates;
+  std::vector<HailoDetectionPtr> seen;
 
   for (auto obj : roi->get_objects_typed(HAILO_DETECTION)) {
     HailoDetectionPtr det = std::dynamic_pointer_cast<HailoDetection>(obj);
@@ -77,7 +89,6 @@ void filter(HailoROIPtr roi)
       continue;
     }
     auto det_copy = std::make_shared<HailoDetection>(*det);
-    det_copy->set_label("vehicle");
 
     for (auto detobj : det->get_objects()) {
       if (detobj->get_type() == HAILO_UNIQUE_ID) {
@@ -89,18 +100,25 @@ void filter(HailoROIPtr roi)
     }
   }
   roi->remove_objects_typed(HAILO_DETECTION);
+
   for (const auto &pair : candidates) {
     int id = pair.first;
-    //does this id have a mapping to vehicle_id? yes -> update vehicle bbox
-    //if not yet exists, check iou against all known bboxes
-      //found ? add mapping, update bbox
-      //notfound ? take a new id, add mapping and new entry with bbox
-    HailoDetectionPtr new_det = pair.second;
-    std::cout << new_det->get_label() << " #" << id << " (" << std::fixed << std::setprecision(1) << (new_det->get_confidence() * 100) << std::setprecision(3) << "5) @ (" << new_det->get_bbox().xmin() << ", ";
-    std::cout << new_det->get_bbox().ymin() << ") ";
-    std::cout << new_det->get_bbox().width() << " x ";
-    std::cout << new_det->get_bbox().height() << std::endl;
-    //roi->add_object(det);
-    hailo_common::add_object(roi, new_det);
+    auto vdet = TurnTracker::GetInstance().get_vehicle_det_for_hailo_det(id);
+    if (vdet == NULL) {
+      vdet = TurnTracker::GetInstance().get_vehicle_det_matching_hailo_det_iou(pair.second);
+      if (vdet) {
+        TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
+      } else {
+        vdet = pair.second;
+        pair.second->set_label("vehicle");
+        TurnTracker::GetInstance().add_vehicle_det(vdet);
+        TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
+      }
+    }
+    vdet->set_bbox(pair.second->get_bbox());
+    seen.emplace_back(vdet);
+  }
+  for (auto det : seen) {
+    hailo_common::add_object(roi, det);
   }
 }

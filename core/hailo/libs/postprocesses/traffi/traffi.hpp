@@ -3,7 +3,11 @@
 #include "hailo_common.hpp"
 
 __BEGIN_DECLS
+
+typedef unsigned int vehicle_id;
+
 void filter(HailoROIPtr roi);
+
 class TurnTracker
 {
 private:
@@ -17,6 +21,11 @@ private:
 
 public:
     static TurnTracker &GetInstance();
+    HailoDetectionPtr get_vehicle_det_for_hailo_det(int hailo_id);
+    HailoDetectionPtr get_vehicle_det_matching_hailo_det_iou(HailoDetectionPtr hailo_det);
+    void map_hailo_id_to_vehicle_det(int hailo_id, HailoDetectionPtr vehicle_det);
+    void add_vehicle_det(HailoDetectionPtr vehicle_det);
+    std::vector<HailoDetectionPtr> vehicle_detections();
 //    void add_jde_tracker(const std::string &name, HailoTrackerParams params);
 //    void add_jde_tracker(const std::string &name);
 //    void remove_jde_tracker(const std::string &name);
