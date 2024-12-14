@@ -72,6 +72,22 @@ void TurnTracker::add_vehicle_det(HailoDetectionPtr det) {
   det->add_object(newid);
   priv->vehicle_dets.emplace_back(det);
 }
+
+//Instructions: Please implement the gc function, making other changes as necessary.
+//Follow all instructions to implement the code as speicified:
+//First, introduce a way to track the last time a vehicle detection was seen.
+//In the gc function, update the last seen time on all elements in vehicle_dets which are in the `seen` argument.
+//for any in vehicle_dets where the last seen time exceeds a defined threshold (use 1.2 seconds as a const for now) remove the
+//vehicle detection and any data related to it. Specifically we must:
+//  1. remove the detection from vehicle_dets
+//  2. remove all entries in hailo_unique_id_vehicles which point to any detection we're removing
+//  3. use applicable mutexes.
+//if we need more data structures, or to change the vector to the map to do this efficiently, that is fine,
+//but we must make sure we also account for that during GC here.
+//DO NOT implement any timing strategies, we must update and GC every frame. I repeat, do not implement any such time_since_last_gc mechanics.
+void TurnTracker::gc(std::vector<HailoDetectionPtr> seen) {
+}
+
 // Default filter function
 void filter(HailoROIPtr roi)
 {
@@ -121,4 +137,5 @@ void filter(HailoROIPtr roi)
   for (auto det : seen) {
     hailo_common::add_object(roi, det);
   }
+  TurnTracker::GetInstance().gc(seen);
 }
