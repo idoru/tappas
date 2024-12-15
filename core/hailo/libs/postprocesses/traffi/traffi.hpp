@@ -25,8 +25,9 @@ public:
     HailoDetectionPtr get_vehicle_det_matching_hailo_det_iou(HailoDetectionPtr hailo_det);
     void map_hailo_id_to_vehicle_det(int hailo_id, HailoDetectionPtr vehicle_det);
     void add_vehicle_det(HailoDetectionPtr vehicle_det);
-    std::vector<HailoDetectionPtr> vehicle_detections();
-    void gc(std::vector<HailoDetectionPtr> seen);
+    std::map<HailoDetectionPtr, int> vehicle_detections();
+    void mark_seen(HailoDetectionPtr vehicle_det);
+    void gc();
 //    void add_jde_tracker(const std::string &name, HailoTrackerParams params);
 //    void add_jde_tracker(const std::string &name);
 //    void remove_jde_tracker(const std::string &name);

@@ -12,7 +12,7 @@ class TurnTracker::TurnTrackerPrivate
   public:
     vehicle_id current_id = 0;
     std::map<int, HailoDetectionPtr> hailo_unique_id_vehicles;
-    std::vector<HailoDetectionPtr> vehicle_dets;
+    std::map<HailoDetectionPtr, int> vehicle_dets;
 };
 
 TurnTracker::TurnTracker() : priv(std::make_unique<TurnTrackerPrivate>()){};
@@ -36,7 +36,8 @@ HailoDetectionPtr TurnTracker::get_vehicle_det_for_hailo_det(int hailo_id) {
 HailoDetectionPtr TurnTracker::get_vehicle_det_matching_hailo_det_iou(HailoDetectionPtr hailo_det) {
   std::lock_guard<std::mutex> lock(mutex_);
   auto a = hailo_det->get_bbox();
-  for (auto det : priv->vehicle_dets) {
+  for (const auto &pair : priv->vehicle_dets) {
+    auto det = pair.first;
     auto b = det->get_bbox();
     if ( ((a.xmin() < b.xmin()) && (a.xmax() > b.xmax()))
        || ((b.xmin() < a.xmin()) && (b.xmax() > a.xmax())) )
@@ -58,7 +59,7 @@ void TurnTracker::map_hailo_id_to_vehicle_det(int hailo_id, HailoDetectionPtr ve
   priv->hailo_unique_id_vehicles[hailo_id] = vehicle_det;
 }
 
-std::vector<HailoDetectionPtr> TurnTracker::vehicle_detections() {
+std::map<HailoDetectionPtr, int> TurnTracker::vehicle_detections() {
   std::lock_guard<std::mutex> lock(mutex_);
   return priv->vehicle_dets;
 }
@@ -70,29 +71,42 @@ void TurnTracker::add_vehicle_det(HailoDetectionPtr det) {
   priv->current_id ++;
   auto newid = std::make_shared<HailoUniqueID>(HailoUniqueID(priv->current_id));
   det->add_object(newid);
-  priv->vehicle_dets.emplace_back(det);
+  priv->vehicle_dets[det] = 10;
 }
 
-//Instructions: Please implement the gc function, making other changes as necessary.
-//Follow all instructions to implement the code as speicified:
-//First, introduce a way to track the last time a vehicle detection was seen.
-//In the gc function, update the last seen time on all elements in vehicle_dets which are in the `seen` argument.
-//for any in vehicle_dets where the last seen time exceeds a defined threshold (use 1.2 seconds as a const for now) remove the
-//vehicle detection and any data related to it. Specifically we must:
-//  1. remove the detection from vehicle_dets
-//  2. remove all entries in hailo_unique_id_vehicles which point to any detection we're removing
-//  3. use applicable mutexes.
-//if we need more data structures, or to change the vector to the map to do this efficiently, that is fine,
-//but we must make sure we also account for that during GC here.
-//DO NOT implement any timing strategies, we must update and GC every frame. I repeat, do not implement any such time_since_last_gc mechanics.
-void TurnTracker::gc(std::vector<HailoDetectionPtr> seen) {
+void TurnTracker::mark_seen(HailoDetectionPtr vehicle_det) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  priv->vehicle_dets[vehicle_det] ++;
+}
+
+void TurnTracker::gc() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::vector<HailoDetectionPtr> deletions;
+  std::vector<int> hailo_id_deletions;
+  for (const auto &pair : priv->vehicle_dets) {
+    priv->vehicle_dets[pair.first] --;
+    if (priv->vehicle_dets[pair.first] < 0) {
+      deletions.emplace_back(pair.first);
+    }
+  }
+  for (const auto &todelete : deletions) {
+    std::cout << "Delete vehicle" << std::endl;
+    priv->vehicle_dets.erase(todelete);
+    for (const auto &mapping : priv->hailo_unique_id_vehicles) {
+      if (mapping.second == todelete) {
+        hailo_id_deletions.emplace_back(mapping.first);
+      }
+    }
+    for (const auto &idtodelete : hailo_id_deletions) {
+      std::cout << "  hid: " << idtodelete << std::endl;
+      priv->hailo_unique_id_vehicles.erase(idtodelete);
+    }
+  }
 }
 
 // Default filter function
 void filter(HailoROIPtr roi)
 {
-  std::cout << "----------------------- " << std::endl;
-
   std::map<int, HailoDetectionPtr> candidates;
   std::vector<HailoDetectionPtr> seen;
 
@@ -100,15 +114,16 @@ void filter(HailoROIPtr roi)
     HailoDetectionPtr det = std::dynamic_pointer_cast<HailoDetection>(obj);
     std::string label = det->get_label();
 
+    //dont care about non vehicles
     bool is_chosen_type = label == "car" || label == "bus" || label == "truck" || label == "train" || label == "boat";
     if (!is_chosen_type) {
       continue;
     }
-    auto det_copy = std::make_shared<HailoDetection>(*det);
 
     for (auto detobj : det->get_objects()) {
       if (detobj->get_type() == HAILO_UNIQUE_ID) {
         HailoUniqueIDPtr id = std::dynamic_pointer_cast<HailoUniqueID>(detobj);
+        auto det_copy = std::make_shared<HailoDetection>(*det);
         candidates[id->get_id()] = det_copy; //candidates are tracked (has unique id from hailotracker) chosen types
       } else {
         std::cout << "UNHANDLED OBJ TYPE: " << detobj->get_type() << std::endl;
@@ -117,25 +132,35 @@ void filter(HailoROIPtr roi)
   }
   roi->remove_objects_typed(HAILO_DETECTION);
 
+  std::cout << "-[detect]----------------------- " << std::endl;
   for (const auto &pair : candidates) {
     int id = pair.first;
+    // do we already have a vehicle detection for hailo detection ID?
     auto vdet = TurnTracker::GetInstance().get_vehicle_det_for_hailo_det(id);
     if (vdet == NULL) {
+      // no? how about one that matches on iou?
       vdet = TurnTracker::GetInstance().get_vehicle_det_matching_hailo_det_iou(pair.second);
       if (vdet) {
+        // iou match with existing:
+        // add this hailo detection ID to the list associated with the matching vehicle detection
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
+        std::cout << "hid:" << id << " mapping to existing vehicle" << std::endl;
       } else {
-        vdet = pair.second;
+        // no match, create a new vechile detection for this candidate
+        vdet = pair.second; //take the copied detection
         pair.second->set_label("vehicle");
         TurnTracker::GetInstance().add_vehicle_det(vdet);
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
+        std::cout << "hid:" << id << " seems new!" << std::endl;
       }
+    } else {
+      std::cout << "hid:" << id << " in existing vehicle detection" << std::endl;
     }
     vdet->set_bbox(pair.second->get_bbox());
     seen.emplace_back(vdet);
+    hailo_common::add_object(roi, vdet);
+    TurnTracker::GetInstance().mark_seen(vdet);
   }
-  for (auto det : seen) {
-    hailo_common::add_object(roi, det);
-  }
-  TurnTracker::GetInstance().gc(seen);
+  std::cout << "-[gc]----------------------- " << std::endl;
+  TurnTracker::GetInstance().gc();
 }
