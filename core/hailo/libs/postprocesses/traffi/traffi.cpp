@@ -1,5 +1,6 @@
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 #include "traffi.hpp"
 #include "common/nms.hpp"
 
@@ -104,6 +105,12 @@ void TurnTracker::gc() {
   }
 }
 
+bool is_above(HailoBBox bbox, float y_intercept, float slope) {
+  auto x = bbox.xmin() + (bbox.width()/2.f);
+  auto y = bbox.ymin() + (bbox.height()/2.f);
+  return y < (y_intercept + slope * x); //TOP LEFT is 0,0, BOTTOM RIGHT is 1.0,1.0
+}
+
 // Default filter function
 void filter(HailoROIPtr roi)
 {
@@ -113,6 +120,38 @@ void filter(HailoROIPtr roi)
   for (auto obj : roi->get_objects_typed(HAILO_DETECTION)) {
     HailoDetectionPtr det = std::dynamic_pointer_cast<HailoDetection>(obj);
     std::string label = det->get_label();
+
+#ifdef DEBUG_RULERS
+    for (float x = 0.0f; x <= 1.01f; x += 0.1f) {
+      for (float y = 0.0f; y <= 1.01f; y += 0.1f) {
+        std::ostringstream oss;
+        //oss << std::fixed << std::setprecision(2) << x << "," << y;
+        oss << x/0.1f/1 << "," << y/0.1f/1;
+        std::string formatted = oss.str();
+
+        auto cpy = std::make_shared<HailoDetection>(*det);
+        cpy->set_bbox(HailoBBox(x-0.01f,y-0.01f, 0.02f, 0.02f));
+        cpy->set_label(formatted);
+        hailo_common::add_object(roi, cpy);
+
+        auto cpytick = std::make_shared<HailoDetection>(*det);
+        cpytick->set_bbox(HailoBBox(x-0.005f,y+0.045f, 0.01f, 0.01f));
+        cpytick->set_label(".");
+        hailo_common::add_object(roi, cpytick);
+
+        auto cpytick2 = std::make_shared<HailoDetection>(*det);
+        cpytick2->set_bbox(HailoBBox(x+0.045f,y-0.005f, 0.01f, 0.01f));
+        cpytick2->set_label(".");
+        hailo_common::add_object(roi, cpytick2);
+
+        auto cpytick8 = std::make_shared<HailoDetection>(*det);
+        cpytick8->set_bbox(HailoBBox(x+0.045f,y+0.045f, 0.01f, 0.01f));
+        cpytick8->set_label(".");
+        hailo_common::add_object(roi, cpytick8);
+      }
+    }
+    return;
+#endif
 
     //dont care about non vehicles
     bool is_chosen_type = label == "car" || label == "bus" || label == "truck" || label == "train" || label == "boat";
@@ -146,7 +185,11 @@ void filter(HailoROIPtr roi)
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
         std::cout << "hid:" << id << " mapping to existing vehicle" << std::endl;
       } else {
-        // no match, create a new vechile detection for this candidate
+        //it's one we weren't previously tracking, check first if in the origin zone. if not, ignore
+        if (is_above(pair.second->get_bbox(), 0.7f, -0.3f)) {
+          continue;
+        }
+        //create a new vechile detection for this candidate
         vdet = pair.second; //take the copied detection
         pair.second->set_label("vehicle");
         TurnTracker::GetInstance().add_vehicle_det(vdet);
@@ -156,7 +199,12 @@ void filter(HailoROIPtr roi)
     } else {
       std::cout << "hid:" << id << " in existing vehicle detection" << std::endl;
     }
-    vdet->set_bbox(pair.second->get_bbox());
+    auto new_bbox = pair.second->get_bbox();
+    //test if we crossed into the detection zone
+    if (is_above(new_bbox, -0.1f, 0.8f)) {
+      vdet->set_label("Oops! ;)");
+    }
+    vdet->set_bbox(new_bbox);
     seen.emplace_back(vdet);
     hailo_common::add_object(roi, vdet);
     TurnTracker::GetInstance().mark_seen(vdet);
