@@ -193,7 +193,7 @@ void filter(HailoROIPtr roi)
         }
         //create a new vechile detection for this candidate
         vdet = pair.second; //take the copied detection
-        pair.second->set_label("vehicle");
+        pair.second->set_label("");
         TurnTracker::GetInstance().add_vehicle_det(vdet);
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
         std::cout << "hid:" << id << " seems new!" << std::endl;
