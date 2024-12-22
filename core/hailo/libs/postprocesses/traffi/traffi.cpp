@@ -171,7 +171,9 @@ void filter(HailoROIPtr roi)
   }
   roi->remove_objects_typed(HAILO_DETECTION);
 
+  #ifdef DEBUG
   std::cout << "-[detect]----------------------- " << std::endl;
+  #endif
   for (const auto &pair : candidates) {
     int id = pair.first;
     // do we already have a vehicle detection for hailo detection ID?
@@ -197,18 +199,23 @@ void filter(HailoROIPtr roi)
         std::cout << "hid:" << id << " seems new!" << std::endl;
       }
     } else {
+      #ifdef DEBUG
       std::cout << "hid:" << id << " in existing vehicle detection" << std::endl;
+      #endif
     }
     auto new_bbox = pair.second->get_bbox();
     //test if we crossed into the detection zone
     if (is_above(new_bbox, -0.1f, 0.8f)) {
       vdet->set_label("Oops! ;)");
+      std::cout << "hid:" << id << " made an illegal turn!" << std::endl;
     }
     vdet->set_bbox(new_bbox);
     seen.emplace_back(vdet);
     hailo_common::add_object(roi, vdet);
     TurnTracker::GetInstance().mark_seen(vdet);
   }
+  #ifdef DEBUG
   std::cout << "-[gc]----------------------- " << std::endl;
+  #endif
   TurnTracker::GetInstance().gc();
 }
