@@ -1,9 +1,19 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <chrono>
+#include <ctime>
 #include <set>
 #include "traffi.hpp"
 #include "common/nms.hpp"
+
+static std::string ts_prefix() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time), "[%Y-%m-%d %H:%M:%S] ");
+    return ss.str();
+}
 
 std::mutex TurnTracker::mutex_;
 
@@ -93,13 +103,13 @@ static int unique_id(HailoDetectionPtr det) {
 
 void TurnTracker::illegal_turn(int hailo_id) {
   #ifdef DEBUG
-  std::cout << "hid:" << hailo_id << " made an illegal turn!" << std::endl;
+  std::cout << ts_prefix() << "hid:" << hailo_id << " made an illegal turn!" << std::endl;
   #endif
   auto vdet = this->get_vehicle_det_for_hailo_det(hailo_id);
   int vehicle_id = unique_id(vdet);
   if (priv->illegal_turn_vehicle_ids.find(vehicle_id) == priv->illegal_turn_vehicle_ids.end()) {
     priv->illegal_turn_vehicle_ids.insert(vehicle_id);
-    std::cout << "Vehicle ID " << vehicle_id << " made an illegal turn. New count: " << priv->illegal_turn_vehicle_ids.size() << std::endl;
+    std::cout << ts_prefix() << "Vehicle ID " << vehicle_id << " made an illegal turn. New count: " << priv->illegal_turn_vehicle_ids.size() << std::endl;
   }
 }
 
@@ -114,7 +124,7 @@ void TurnTracker::gc() {
     }
   }
   for (const auto &todelete : deletions) {
-    std::cout << "Delete vehicle id: " << unique_id(todelete) << std::endl;
+    std::cout << ts_prefix() << "Delete vehicle id: " << unique_id(todelete) << std::endl;
     priv->vehicle_dets.erase(todelete);
     for (const auto &mapping : priv->hailo_unique_id_vehicles) {
       if (mapping.second == todelete) {
@@ -122,7 +132,7 @@ void TurnTracker::gc() {
       }
     }
     for (const auto &idtodelete : hailo_id_deletions) {
-      std::cout << "  was hid:" << idtodelete << std::endl;
+      std::cout << ts_prefix() << "  was hid:" << idtodelete << std::endl;
       priv->hailo_unique_id_vehicles.erase(idtodelete);
     }
   }
@@ -208,7 +218,7 @@ void filter(HailoROIPtr roi)
         // iou match with existing:
         // add this hailo detection ID to the list associated with the matching vehicle detection
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-        std::cout << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
+        std::cout << ts_prefix() << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
       } else {
         //it's one we weren't previously tracking, check first if in the origin zone. if not, ignore
         if (is_above(pair.second->get_bbox(), 0.7f, -0.3f)) {
@@ -219,11 +229,11 @@ void filter(HailoROIPtr roi)
         pair.second->set_label("");
         TurnTracker::GetInstance().add_vehicle_det(vdet);
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-        std::cout << "hid:" << id << " seems new!" << std::endl;
+        std::cout << ts_prefix() << "hid:" << id << " seems new!" << std::endl;
       }
     } else {
       #ifdef DEBUG
-      std::cout << "hid:" << id << " in existing vehicle detection" << std::endl;
+      std::cout << ts_prefix() << "hid:" << id << " in existing vehicle detection" << std::endl;
       #endif
     }
     auto new_bbox = pair.second->get_bbox();
