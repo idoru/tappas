@@ -113,6 +113,11 @@ void TurnTracker::illegal_turn(int hailo_id) {
   }
 }
 
+size_t TurnTracker::get_illegal_turn_count() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return priv->illegal_turn_vehicle_ids.size();
+}
+
 void TurnTracker::gc() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::vector<HailoDetectionPtr> deletions;
@@ -247,6 +252,14 @@ void filter(HailoROIPtr roi)
     hailo_common::add_object(roi, vdet);
     TurnTracker::GetInstance().mark_seen(vdet);
   }
+
+  HailoUserMetaPtr illegal_turn_count = std::make_shared<HailoUserMeta>(
+      static_cast<int>(TurnTracker::GetInstance().get_illegal_turn_count()),
+      "right-turn-count",
+      0.0f
+  );
+  roi->add_object(illegal_turn_count);
+
   #ifdef DEBUG
   std::cout << "-[gc]----------------------- " << std::endl;
   #endif

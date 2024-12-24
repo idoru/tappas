@@ -29,6 +29,7 @@ public:
     void mark_seen(HailoDetectionPtr vehicle_det);
     void gc();
     void illegal_turn(int hailo_id);
+    size_t get_illegal_turn_count();
 //    void add_jde_tracker(const std::string &name, HailoTrackerParams params);
 //    void add_jde_tracker(const std::string &name);
 //    void remove_jde_tracker(const std::string &name);
