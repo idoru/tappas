@@ -436,6 +436,20 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             draw_conf_class_mask(mat, mask, roi, mask_overlay_n_threads);
             break;
         }
+        case HAILO_USER_META:
+        {
+            HailoUserMetaPtr usermeta = std::dynamic_pointer_cast<HailoUserMeta>(obj);
+            if (usermeta->get_user_string() == "right-turn-count")
+            {
+              auto font_scale = 0.5f;
+              auto text_position = cv::Point(0.5f, 0.5f);
+              std::string text = "Illegal right turns: " + std::to_string(usermeta->get_user_int());
+
+              hmat.draw_text(text, cv::Point(3.f, 15.f), font_scale, cv::Scalar(0, 0, 0));
+              hmat.draw_text(text, cv::Point(2.999f, 14.999f), font_scale, cv::Scalar(255, 255, 255));
+              break;
+            }
+        }
         default:
             // continue
             break;

@@ -185,7 +185,7 @@ public:
     }
     virtual void draw_text(std::string text, cv::Point position, double font_scale, const cv::Scalar color)
     {
-        cv::putText(m_matrices[0], text, position, cv::FONT_HERSHEY_SIMPLEX, font_scale, color, m_font_thickness);
+        cv::putText(m_matrices[0], text, position, cv::FONT_HERSHEY_DUPLEX, font_scale, color, m_font_thickness);
     }
     virtual void draw_line(cv::Point point1, cv::Point point2, const cv::Scalar color, int thickness, int line_type)
     {

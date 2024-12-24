@@ -258,7 +258,7 @@ void filter(HailoROIPtr roi)
       "right-turn-count",
       0.0f
   );
-  roi->add_object(illegal_turn_count);
+  hailo_common::add_object(roi, illegal_turn_count);
 
   #ifdef DEBUG
   std::cout << "-[gc]----------------------- " << std::endl;
