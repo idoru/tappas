@@ -244,7 +244,7 @@ void filter(HailoROIPtr roi)
     auto new_bbox = pair.second->get_bbox();
     //test if we crossed into the detection zone
     if (is_above(new_bbox, -0.1f, 0.8f)) {
-      vdet->set_label("Oops! ;)");
+      vdet->set_label("Oops!");
       TurnTracker::GetInstance().illegal_turn(id);
     }
     vdet->set_bbox(new_bbox);

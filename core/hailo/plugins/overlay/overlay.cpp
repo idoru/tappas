@@ -360,7 +360,12 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             }
             else
             {
-                color = get_color((size_t)detection->get_class_id());
+                if (detection->get_label() == "") {
+                  color = get_color(1);
+                } else {
+                  color = get_color(0);
+                }
+                // color = get_color((size_t)detection->get_class_id());
                 text = get_detection_text(detection, show_confidence);
             }
 
@@ -441,13 +446,13 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             HailoUserMetaPtr usermeta = std::dynamic_pointer_cast<HailoUserMeta>(obj);
             if (usermeta->get_user_string() == "right-turn-count")
             {
-              auto font_scale = 0.5f;
-              auto text_position = cv::Point(0.5f, 0.5f);
-              std::string text = "Illegal right turns: " + std::to_string(usermeta->get_user_int());
+                auto font_scale = 0.5f;
+                auto text_position = cv::Point(0.5f, 0.5f);
+                std::string text = "Illegal right turns: " + std::to_string(usermeta->get_user_int());
 
-              hmat.draw_text(text, cv::Point(3.f, 15.f), font_scale, cv::Scalar(0, 0, 0));
-              hmat.draw_text(text, cv::Point(2.999f, 14.999f), font_scale, cv::Scalar(255, 255, 255));
-              break;
+                hmat.draw_text(text, cv::Point(3.f, 15.f), font_scale, cv::Scalar(0, 0, 0));
+                hmat.draw_text(text, cv::Point(2.999f, 14.999f), font_scale, cv::Scalar(255, 255, 255));
+                break;
             }
         }
         default:
