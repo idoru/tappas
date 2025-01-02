@@ -194,14 +194,10 @@ static overlay_status_t draw_id(HailoMat &mat, HailoUniqueIDPtr &hailo_id, Hailo
     std::string id_text = std::to_string(hailo_id->get_id());
 
     auto bbox = roi->get_bbox();
-    auto bbox_min = cv::Point(bbox.xmin() * mat.native_width(), bbox.ymin() * mat.native_height());
-    auto bbox_max = cv::Point(bbox.xmax() * mat.native_width(), bbox.ymax() * mat.native_height());
-    auto bbox_width = bbox_max.x - bbox_min.x;
     auto color = get_color(NULL_CLASS_ID);
 
-    // Calculating the font size according to the box width.
-    double font_scale = TEXT_FONT_FACTOR * log(bbox_width);
-    auto text_position = cv::Point(bbox_min.x + log(bbox_width), bbox_max.y - log(bbox_width));
+    double font_scale = 0.25f;
+    auto text_position = cv::Point(bbox.xmin(), bbox.ymax() * (240.f/480.f));
     // Draw the class and confidence text
     mat.draw_text(id_text, text_position, font_scale, color);
     return OVERLAY_STATUS_OK;
@@ -418,9 +414,9 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
         }
         case HAILO_UNIQUE_ID:
         {
-            HailoUniqueIDPtr id = std::dynamic_pointer_cast<HailoUniqueID>(obj);
-            if ((local_gallery && id->get_mode() == GLOBAL_ID) || (!local_gallery && id->get_mode() == TRACKING_ID))
-                draw_id(hmat, id, roi);
+            // HailoUniqueIDPtr id = std::dynamic_pointer_cast<HailoUniqueID>(obj);
+            // if ((local_gallery && id->get_mode() == GLOBAL_ID) || (!local_gallery && id->get_mode() == TRACKING_ID))
+            //     draw_id(hmat, id, roi);
             break;
         }
         case HAILO_DEPTH_MASK:
