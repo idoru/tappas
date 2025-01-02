@@ -16,6 +16,7 @@ static std::string ts_prefix() {
     return ss.str();
 }
 
+std::mutex lastmutex_;
 std::mutex TurnTracker::mutex_;
 
 typedef unsigned int vehicle_id;
@@ -150,13 +151,19 @@ bool is_above(HailoBBox bbox, float y_intercept, float slope) {
   return y < (y_intercept + slope * x); //TOP LEFT is 0,0, BOTTOM RIGHT is 1.0,1.0
 }
 
+static std::vector<HailoObjectPtr> lastDetections;
+
 // Default filter function
 void filter(HailoROIPtr roi)
 {
   std::map<int, HailoDetectionPtr> candidates;
   std::vector<HailoDetectionPtr> seen;
 
-  for (auto obj : roi->get_objects_typed(HAILO_DETECTION)) {
+  {
+    std::lock_guard<std::mutex> lock(lastmutex_);
+    lastDetections = roi->get_objects_typed(HAILO_DETECTION);
+  }
+  for (auto obj : lastDetections) {
     HailoDetectionPtr det = std::dynamic_pointer_cast<HailoDetection>(obj);
     std::string label = det->get_label();
 
@@ -271,13 +278,14 @@ static unsigned int dumpcount;
 
 void dump_dets(HailoROIPtr roi)
 {
+    std::lock_guard<std::mutex> lock(lastmutex_);
     std::cout << ts_prefix() << "taking snapshot " << dumpcount << std::endl;
     std::string filename = "/var/local/traffi/infs/result_" + std::to_string(dumpcount).insert(0, 5 - std::to_string(dumpcount).length(), '0') + ".json";
     std::ofstream outfile(filename);
 
     outfile << "[\n";
     bool first = true;
-    for (auto obj : roi->get_objects_typed(HAILO_DETECTION)) {
+    for (auto obj : lastDetections) {
         HailoDetectionPtr det = std::dynamic_pointer_cast<HailoDetection>(obj);
         auto bbox = det->get_bbox();
         std::string label = det->get_label();
