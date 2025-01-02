@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 #include <chrono>
 #include <ctime>
 #include <set>
@@ -264,4 +265,43 @@ void filter(HailoROIPtr roi)
   std::cout << "-[gc]----------------------- " << std::endl;
   #endif
   TurnTracker::GetInstance().gc();
+}
+
+static unsigned int dumpcount;
+
+void dump_dets(HailoROIPtr roi)
+{
+    std::cout << ts_prefix() << "taking snapshot " << dumpcount << std::endl;
+    std::string filename = "/var/local/traffi/infs/result_" + std::to_string(dumpcount).insert(0, 5 - std::to_string(dumpcount).length(), '0') + ".json";
+    std::ofstream outfile(filename);
+
+    outfile << "[\n";
+    bool first = true;
+    for (auto obj : roi->get_objects_typed(HAILO_DETECTION)) {
+        HailoDetectionPtr det = std::dynamic_pointer_cast<HailoDetection>(obj);
+        auto bbox = det->get_bbox();
+        std::string label = det->get_label();
+        float confidence = det->get_confidence();
+
+        if (!first) {
+            outfile << ",\n";
+        }
+        first = false;
+
+        outfile << "  {\n";
+        outfile << "    \"label\": \"" << label << "\",\n";
+        outfile << "    \"confidence\": " << confidence << ",\n";
+        outfile << "    \"bbox\": {\n";
+        outfile << "      \"minx\": " << bbox.xmin() << ",\n";
+        outfile << "      \"miny\": " << bbox.ymin() << ",\n";
+        outfile << "      \"maxx\": " << bbox.xmax() << ",\n";
+        outfile << "      \"maxy\": " << bbox.ymax() << "\n";
+        outfile << "    }\n";
+        outfile << "  }";
+    }
+    outfile << "\n]";
+
+    outfile.close();
+
+    dumpcount++;
 }

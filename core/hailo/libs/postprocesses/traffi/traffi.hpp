@@ -7,6 +7,7 @@ __BEGIN_DECLS
 typedef unsigned int vehicle_id;
 
 void filter(HailoROIPtr roi);
+void dump_dets(HailoROIPtr roi);
 
 class TurnTracker
 {
