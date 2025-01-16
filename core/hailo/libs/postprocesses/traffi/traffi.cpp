@@ -7,6 +7,7 @@
 #include <set>
 #include "traffi.hpp"
 #include "common/nms.hpp"
+#include "config.hpp"
 
 static std::string ts_prefix() {
     auto now = std::chrono::system_clock::now();
@@ -103,15 +104,15 @@ static int unique_id(HailoDetectionPtr det) {
   }
 }
 
-void TurnTracker::illegal_turn(int hailo_id) {
+void TurnTracker::illegal_turn(int hailo_id, string from, string to) {
   #ifdef DEBUG
-  std::cout << ts_prefix() << "hid:" << hailo_id << " made an illegal turn!" << std::endl;
+  std::cout << ts_prefix() << "hid:" << hailo_id << " made illegal turn from" << from << " to " << to << "!" << std::endl;
   #endif
   auto vdet = this->get_vehicle_det_for_hailo_det(hailo_id);
   int vehicle_id = unique_id(vdet);
   if (priv->illegal_turn_vehicle_ids.find(vehicle_id) == priv->illegal_turn_vehicle_ids.end()) {
     priv->illegal_turn_vehicle_ids.insert(vehicle_id);
-    std::cout << ts_prefix() << "Vehicle ID " << vehicle_id << " made an illegal turn. New count: " << priv->illegal_turn_vehicle_ids.size() << std::endl;
+    std::cout << ts_prefix() << "Vehicle ID " << vehicle_id << " made an illegal turn from" << from << " to " << to << ". New total: " << priv->illegal_turn_vehicle_ids.size() << std::endl;
   }
 }
 
@@ -233,28 +234,57 @@ void filter(HailoROIPtr roi)
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
         std::cout << ts_prefix() << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
       } else {
-        //it's one we weren't previously tracking, check first if in the origin zone. if not, ignore
-        if (is_above(pair.second->get_bbox(), 0.7f, -0.3f)) {
+        bool marked = false;
+        for (const auto& entry: Config::Get().GetEntries()) {
+          auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
+          float yint = entry.p0y - (entry.p0x * slope);
+          bool pass = is_above(pair.second->get_bbox(), yint, slope);
+          if (!entry.testsbelow) {
+            pass = !pass;
+          }
+          if (!pass) {
+            marked = true;
+            vdet = pair.second; //take the copied detection
+            pair.second->set_label(entry.label);
+            //create a new vechile detection for this candidate
+            TurnTracker::GetInstance().add_vehicle_det(vdet);
+            TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
+            std::cout << ts_prefix() << "hid:" << id << " seems new at " << entry.label << std::endl;
+            break;
+          }
+        }
+        if (!marked) {
           continue;
         }
-        //create a new vechile detection for this candidate
-        vdet = pair.second; //take the copied detection
-        pair.second->set_label("");
-        TurnTracker::GetInstance().add_vehicle_det(vdet);
-        TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-        std::cout << ts_prefix() << "hid:" << id << " seems new!" << std::endl;
       }
     } else {
       #ifdef DEBUG
       std::cout << ts_prefix() << "hid:" << id << " in existing vehicle detection" << std::endl;
       #endif
     }
-    auto new_bbox = pair.second->get_bbox();
-    //test if we crossed into the detection zone
-    if (is_above(new_bbox, -0.1f, 0.8f)) {
-      vdet->set_label("Oops!");
-      TurnTracker::GetInstance().illegal_turn(id);
+
+    if (vdet->get_label()=="Oops!") {
+      continue;
     }
+    auto new_bbox = pair.second->get_bbox();
+    for (const auto& entry: Config::Get().GetEntries()) {
+      auto it = std::find(entry.prohibited.begin(), entry.prohibited.end(), vdet->get_label());
+      if (it==entry.prohibited.end()) {
+        continue;
+      }
+      auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
+      float yint = entry.p0y - (entry.p0x * slope);
+      bool pass = is_above(new_bbox, yint, slope);
+      if (!entry.testsbelow) {
+        pass = !pass;
+      }
+      if (!pass) {
+        TurnTracker::GetInstance().illegal_turn(id, vdet->get_label(), entry.label);
+        vdet->set_label("Oops!");
+        break;
+      }
+    }
+
     vdet->set_bbox(new_bbox);
     seen.emplace_back(vdet);
     hailo_common::add_object(roi, vdet);
