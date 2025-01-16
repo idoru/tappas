@@ -17,7 +17,8 @@ repave() {
 }
 
 if [ "$1" = "--repave" ]; then
-  repave
+  time repave
+  echo $(date) BUILD COMPLETED
   exit 0
 fi
 

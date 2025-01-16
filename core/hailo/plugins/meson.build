@@ -28,6 +28,7 @@ plugin_sources = [
     'muxer/gsthailoroundrobin.cpp',
     'muxer/gsthailostreamrouter.cpp',
     'common/image.cpp',
+    'overlay/config.cpp',
     'overlay/overlay.cpp',
     'overlay/gsthailooverlay.cpp',
     'cropping/gsthailobasecropper.cpp',

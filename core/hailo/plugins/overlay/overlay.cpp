@@ -18,6 +18,7 @@
 #include "overlay.hpp"
 #include "overlay_utils.hpp"
 #include "hailo_common.hpp"
+#include "config.hpp"
 
 #define SPACE " "
 #define TEXT_CLS_FONT_SCALE_FACTOR (0.0025f)
@@ -150,6 +151,17 @@ static cv::Rect get_rect(HailoMat &mat, HailoDetectionPtr detection, HailoROIPtr
     auto bbox_max = cv::Point(((detection_bbox.xmax() * roi_bbox.width()) + roi_bbox.xmin()) * mat.native_width(),
                               ((detection_bbox.ymax() * roi_bbox.height()) + roi_bbox.ymin()) * mat.native_height());
     return cv::Rect(bbox_min, bbox_max);
+}
+
+static cv::Point get_point(HailoMat &mat, float x, float y, HailoROIPtr roi)
+{
+    HailoBBox roi_bbox = hailo_common::create_flattened_bbox(roi->get_bbox(), roi->get_scaling_bbox());
+
+    auto point = cv::Point(
+      ((x * roi_bbox.width()) + roi_bbox.xmin()) * mat.native_width(),
+      ((y * roi_bbox.height()) + roi_bbox.ymin()) * mat.native_height());
+
+    return point;
 }
 
 static std::string get_detection_text(HailoDetectionPtr detection, bool show_confidence = true)
@@ -356,10 +368,22 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             }
             else
             {
-                if (detection->get_label() == "") {
-                  color = get_color(1);
-                } else {
+                if (detection->get_label() == "Oops!") {
                   color = get_color(0);
+                } else {
+                    bool canceldraw = false;
+                    for (const auto& entry: Config::Get().GetEntries()) {
+                      if (entry.label == detection->get_label()) {
+                        if (!entry.showcar) {
+                          canceldraw = true;
+                          break;
+                        }
+                        color = entry.color;
+                      }
+                    }
+                    if (canceldraw) {
+                      continue;
+                    }
                 }
                 // color = get_color((size_t)detection->get_class_id());
                 text = get_detection_text(detection, show_confidence);
@@ -370,9 +394,11 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             hmat.draw_rectangle(rect, color);
 
             // Draw text
-            auto text_position = cv::Point(rect.x - log(rect.width), rect.y - log(rect.width));
-            float font_scale = TEXT_FONT_FACTOR * log(rect.width);
-            hmat.draw_text(text, text_position, font_scale, color);
+            if (detection->get_label() == "Oops!") {
+              auto text_position = cv::Point(rect.x - log(rect.width), rect.y - log(rect.width));
+              float font_scale = TEXT_FONT_FACTOR * log(rect.width);
+              hmat.draw_text("Illegal!", text_position, font_scale, color);
+            }
 
             // Draw inner objects.
             ret = draw_all(hmat, detection, landmark_point_radius, show_confidence, local_gallery, mask_overlay_n_threads);
@@ -449,6 +475,14 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
 
                 hmat.draw_text(text, shadow_position, font_scale, cv::Scalar(0, 0, 0));
                 hmat.draw_text(text, text_position, font_scale, cv::Scalar(255, 255, 255));
+
+                for (const auto& entry: Config::Get().GetEntries()) {
+                  if (entry.show) {
+                    auto p0 = get_point(hmat, entry.p0x, entry.p0y, roi);
+                    auto p1 = get_point(hmat, entry.p1x, entry.p1y, roi);
+                    hmat.draw_line(p0, p1, entry.color, 1, cv::LINE_4);
+                  }
+                }
                 break;
             }
         }

@@ -104,7 +104,7 @@ static int unique_id(HailoDetectionPtr det) {
   }
 }
 
-void TurnTracker::illegal_turn(int hailo_id, string from, string to) {
+void TurnTracker::illegal_turn(int hailo_id, std::string from, std::string to) {
   #ifdef DEBUG
   std::cout << ts_prefix() << "hid:" << hailo_id << " made illegal turn from" << from << " to " << to << "!" << std::endl;
   #endif
