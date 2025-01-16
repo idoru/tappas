@@ -22,4 +22,4 @@ if [ "$1" = "--repave" ]; then
 fi
 
 set -exuo pipefail
-find . -type f | entr -s "$0 --repave"
+find . -type f -name '*.cpp' -or -name '*.hpp' -or -name '*.c' -or -name '*.h' | entr -s "$0 --repave"
