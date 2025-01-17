@@ -19,6 +19,7 @@
 #include "overlay_utils.hpp"
 #include "hailo_common.hpp"
 #include "config.hpp"
+#include <pango/pangocairo.h>
 
 #define SPACE " "
 #define TEXT_CLS_FONT_SCALE_FACTOR (0.0025f)
@@ -342,6 +343,144 @@ static overlay_status_t draw_conf_class_mask(cv::Mat &image_planes, HailoConfCla
 
     return OVERLAY_STATUS_OK;
 }
+//
+// void draw_text_pango(HailoMat &hmat, const std::string &text, const cv::Point &position, double font_scale, const cv::Scalar &color)
+// {
+//     cairo_surface_t *surface = cairo_image_surface_create_for_data(
+//         hmat.get_matrices()[0].data,
+//         CAIRO_FORMAT_RGB24,
+//         hmat.native_width(),
+//         hmat.native_height(),
+//         hmat.native_width() * 3
+//     );
+//
+//     cairo_t *cr = cairo_create(surface);
+//
+//     PangoLayout *layout = pango_cairo_create_layout(cr);
+//     PangoFontDescription *font_desc = pango_font_description_new();
+//
+//     pango_font_description_set_family(font_desc, "Sans");
+//     pango_font_description_set_weight(font_desc, PANGO_WEIGHT_NORMAL);
+//     pango_font_description_set_absolute_size(font_desc, font_scale * PANGO_SCALE);
+//
+//     pango_layout_set_font_description(layout, font_desc);
+//     pango_layout_set_text(layout, text.c_str(), -1);
+//
+//     cairo_set_source_rgb(cr, color[2] / 255.0, color[1] / 255.0, color[0] / 255.0);
+//     cairo_move_to(cr, position.x, position.y);
+//
+//     pango_cairo_show_cairo_destroy(cr);
+//     cairo_layout(cr, layout);
+//
+//     pango_font_description_free(font_desc);
+//     surface_destroy(surface);
+// }
+//
+// //The following errors in draw_text_pango need fixing:
+//
+// ../plugins/overlay/overlay.cpp: In function ‘void draw_text_pango(HailoMat&, const std::string&, const cv::Point&, double, const cv::Scalar&)’:
+// ../plugins/overlay/overlay.cpp:372:5: error: ‘pango_cairo_show_cairo_destroy’ was not declared in this scope; did you mean ‘pango_cairo_show_layout’?
+//   372 |     pango_cairo_show_cairo_destroy(cr);
+//       |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//       |     pango_cairo_show_layout
+// ../plugins/overlay/overlay.cpp:373:5: error: ‘cairo_layout’ was not declared in this scope; did you mean ‘cairo_path_t’?
+//   373 |     cairo_layout(cr, layout);
+//       |     ^~~~~~~~~~~~
+//       |     cairo_path_t
+// ../plugins/overlay/overlay.cpp:376:5: error: ‘surface_destroy’ was not declared in this scope; did you mean ‘hb_face_destroy’?
+//   376 |     surface_destroy(surface);
+//       |     ^~~~~~~~~~~~~~~
+//       |     hb_face_destroy
+//
+// Here's the corrected version of the draw_text_pango function:
+//
+// void draw_text_pango(HailoMat &hmat, const std::string &text, const cv::Point &position, double font_scale, const cv::Scalar &color)
+// {
+//     cairo_surface_t *surface = cairo_image_surface_create_for_data(
+//         hmat.get_matrices()[0].data,
+//         CAIRO_FORMAT_RGB24,
+//         hmat.native_width(),
+//         hmat.native_height(),
+//         hmat.native_width() * 3
+//     );
+//
+//     cairo_t *cr = cairo_create(surface);
+//
+//     PangoLayout *layout = pango_cairo_create_layout(cr);
+//     PangoFontDescription *font_desc = pango_font_description_new();
+//
+//     pango_font_description_set_family(font_desc, "Sans");
+//     pango_font_description_set_weight(font_desc, PANGO_WEIGHT_NORMAL);
+//     pango_font_description_set_absolute_size(font_desc, font_scale * PANGO_SCALE);
+//
+//     pango_layout_set_font_description(layout, font_desc);
+//     pango_layout_set_text(layout, text.c_str(), -1);
+//
+//     cairo_set_source_rgb(cr, color[2] / 255.0, color[1] / 255.0, color[0] / 255.0);
+//     cairo_move_to(cr, position.x, position.y);
+//
+//     pango_cairo_show_layout(cr, layout);
+//
+//     pango_font_description_free(font_desc);
+//     g_object_unref(layout);
+//     cairo_destroy(cr);
+//     cairo_surface_destroy(surface);
+// }
+// //Look at the above function. I dont think it works. it takes the hmat, but doesnt do any rendering with it?
+// You're right, the function as it stands doesn't actually render the text onto the HailoMat. Let's modify it to properly render the text onto the image data. Here's a corrected version that should work:
+
+void draw_text_pango(HailoMat &hmat, const std::string &text, const cv::Point &position, double font_scale, const cv::Scalar &color)
+{
+    // Create a temporary surface with the same dimensions as the input image
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, hmat.native_width(), hmat.native_height());
+    cairo_t *cr = cairo_create(surface);
+
+    // Set up Pango layout
+    PangoLayout *layout = pango_cairo_create_layout(cr);
+    PangoFontDescription *font_desc = pango_font_description_new();
+
+    pango_font_description_set_family(font_desc, "Monospace");
+    pango_font_description_set_weight(font_desc, PANGO_WEIGHT_NORMAL);
+    pango_font_description_set_absolute_size(font_desc, font_scale * PANGO_SCALE);
+
+    pango_layout_set_font_description(layout, font_desc);
+    pango_layout_set_text(layout, text.c_str(), -1);
+
+    // Set color and position
+    cairo_set_source_rgba(cr, color[2] / 255.0, color[1] / 255.0, color[0] / 255.0, 1.0);
+    cairo_move_to(cr, position.x, position.y);
+
+    // Render the text
+    pango_cairo_show_layout(cr, layout);
+
+    // Get the rendered image data
+    unsigned char* surface_data = cairo_image_surface_get_data(surface);
+    int stride = cairo_image_surface_get_stride(surface);
+
+    // Copy the rendered text to the HailoMat
+    for (int y = 0; y < hmat.native_height(); ++y) {
+        for (int x = 0; x < hmat.native_width(); ++x) {
+            int surface_index = y * stride + x * 4;
+            int mat_index = y * hmat.native_width() * 3 + x * 3;
+                                             if (surface_data[surface_index + 3] > 
+            // Only copy non-transparent pixels
+            0) {
+                hmat.get_matrices()[0].data[mat_index] = surface_data[surface_index + 2];
+                hmat.get_matrices()[0].data[mat_index + 1] = surface_data[surface_index + 1];
+                hmat.get_matrices()[0].data[mat_index + 2] = surface_data[surface_index + 0];
+            }
+        }
+    }
+
+    pango_font_description_free(font_desc);
+    g_object_unref(layout);
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+}
+
+//Still no errors, but also no text. what can we do?
+
+
 
 overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_radius, bool show_confidence, bool local_gallery, const uint mask_overlay_n_threads)
 {
@@ -469,12 +608,13 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             if (usermeta->get_user_string() == "right-turn-count")
             {
                 auto font_scale = 0.5f;
-                auto shadow_position = cv::Point(3.f, 15.f);
+                auto shadow_position = cv::Point(30.f, 150.f);
                 auto text_position = cv::Point(shadow_position.x - 0.001f, shadow_position.y - 0.001f);
                 std::string text = "Illegal right turns: " + std::to_string(usermeta->get_user_int());
 
-                hmat.draw_text(text, shadow_position, font_scale, cv::Scalar(0, 0, 0));
-                hmat.draw_text(text, text_position, font_scale, cv::Scalar(255, 255, 255));
+draw_text_pango(hmat, text, cv::Point(0,0), font_scale, cv::Scalar(255, 255, 255));
+                // hmat.draw_text(text, shadow_position, font_scale, cv::Scalar(0, 0, 0));
+                // hmat.draw_text(text, text_position, font_scale, cv::Scalar(255, 255, 255));
 
                 for (const auto& entry: Config::Get().GetEntries()) {
                   if (entry.show) {
@@ -519,3 +659,8 @@ void face_blur(HailoMat &hmat, HailoROIPtr roi)
         }
     }
 }
+
+//Can you add some code to render strings with pango?
+//Please note HailoMat isnt ours and draw_text is already implemented virtual in the hpp.
+//After you write the function, let me know how I will need to modify my meson.build files for new dependencies as well.
+//Certainly! I can help you add a function to render strings with Pango. Since HailoMat is not yours and draw_text is already implemented, we'll create a new function that uses Pango for text rendering. Here's a new function you can add to your overlay.cpp file:

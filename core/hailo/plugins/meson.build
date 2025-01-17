@@ -70,13 +70,16 @@ endif
 ################################################
 # Hailo Gstreamer Shared Library
 ################################################
+pango_dep = dependency('pango')
+pangocairo_dep = dependency('pangocairo')
+cairo_dep = dependency('cairo')
 shared_library('gsthailotools',
     plugin_sources,
     cpp_args : hailo_lib_args + common_args + sysroot_arg + ['-pthread'],
     c_args : hailo_lib_args + common_args + sysroot_arg,
     link_args: hailo_link_args,
     include_directories: [hailo_general_inc, xtensor_inc, rapidjson_inc, hailo_mat_inc],
-    dependencies : gsthailotools_deps + [dependency('threads')],
+    dependencies : gsthailotools_deps + [dependency('threads'), pango_dep, pangocairo_dep, cairo_dep],
     gnu_symbol_visibility : 'default',
     version: meson.project_version(),
     install: true,
