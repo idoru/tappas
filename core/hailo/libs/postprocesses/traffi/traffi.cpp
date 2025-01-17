@@ -263,25 +263,24 @@ void filter(HailoROIPtr roi)
       #endif
     }
 
-    if (vdet->get_label()=="Oops!") {
-      continue;
-    }
     auto new_bbox = pair.second->get_bbox();
-    for (const auto& entry: Config::Get().GetEntries()) {
-      auto it = std::find(entry.prohibited.begin(), entry.prohibited.end(), vdet->get_label());
-      if (it==entry.prohibited.end()) {
-        continue;
-      }
-      auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
-      float yint = entry.p0y - (entry.p0x * slope);
-      bool pass = is_above(new_bbox, yint, slope);
-      if (!entry.testsbelow) {
-        pass = !pass;
-      }
-      if (!pass) {
-        TurnTracker::GetInstance().illegal_turn(id, vdet->get_label(), entry.label);
-        vdet->set_label("Oops!");
-        break;
+    if (vdet->get_label()!="Oops!") {
+      for (const auto& entry: Config::Get().GetEntries()) {
+        auto it = std::find(entry.prohibited.begin(), entry.prohibited.end(), vdet->get_label());
+        if (it==entry.prohibited.end()) {
+          continue;
+        }
+        auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
+        float yint = entry.p0y - (entry.p0x * slope);
+        bool pass = is_above(new_bbox, yint, slope);
+        if (!entry.testsbelow) {
+          pass = !pass;
+        }
+        if (!pass) {
+          TurnTracker::GetInstance().illegal_turn(id, vdet->get_label(), entry.label);
+          vdet->set_label("Oops!");
+          break;
+        }
       }
     }
 
