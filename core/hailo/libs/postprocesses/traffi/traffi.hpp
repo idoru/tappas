@@ -29,8 +29,8 @@ public:
     std::map<HailoDetectionPtr, int> vehicle_detections();
     void mark_seen(HailoDetectionPtr vehicle_det);
     void gc();
-    void illegal_turn(int hailo_id, std::string from, std::string to);
-    size_t get_illegal_turn_count();
+    void track_crossing(int hailo_id, std::string from, std::string to, bool islegal);
+    size_t get_illegal_crossing_count();
 //    void add_jde_tracker(const std::string &name, HailoTrackerParams params);
 //    void add_jde_tracker(const std::string &name);
 //    void remove_jde_tracker(const std::string &name);

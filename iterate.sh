@@ -4,6 +4,7 @@ export TAPPAS_WORKSPACE=$(pwd)
 export CAMSERV_WORKSPACE=$TAPPAS_WORKSPACE/../camserv
 
 repave() {
+  set -exuo pipefail
   pushd "$TAPPAS_WORKSPACE"
   ./scripts/gstreamer/install_hailo_gstreamer.sh --skip-hailort
   popd
@@ -22,5 +23,4 @@ if [ "$1" = "--repave" ]; then
   exit 0
 fi
 
-set -exuo pipefail
 find . -type f -name '*.cpp' -or -name '*.hpp' -or -name '*.c' -or -name '*.h' | entr -s "$0 --repave"

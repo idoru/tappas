@@ -334,12 +334,14 @@ shared_library('face_recognition_post',
 traffi_post_sources = [
     'traffi/traffi.cpp',
     'traffi/config.cpp',
+    'traffi/event_logger.cpp',
 ]
 
+curl_dep = dependency('libcurl')
 traffi_lib = shared_library('traffi_post',
     traffi_post_sources,
     include_directories: [hailo_general_inc, include_directories('./'), rapidjson_inc] + xtensor_inc,
-    dependencies : post_deps + opencv_dep,
+    dependencies : post_deps + opencv_dep + curl_dep,
     #cpp_args : hailo_lib_args,
     gnu_symbol_visibility : 'default',
     install: true,

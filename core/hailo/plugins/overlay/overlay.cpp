@@ -370,6 +370,8 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             {
                 if (detection->get_label() == "Oops!") {
                   color = get_color(0);
+                } else if (detection->get_label() == "OK") {
+                  color = get_color(1);
                 } else {
                     bool canceldraw = false;
                     for (const auto& entry: Config::Get().GetEntries()) {
@@ -394,10 +396,16 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             hmat.draw_rectangle(rect, color);
 
             // Draw text
+            std::string drawtext = "";
             if (detection->get_label() == "Oops!") {
+              drawtext = "Illegal!";
+            } else if (detection->get_label() == "OK") {
+              drawtext = "Legal";
+            }
+            if (drawtext != "") {
               auto text_position = cv::Point(rect.x - log(rect.width), rect.y - log(rect.width));
               float font_scale = TEXT_FONT_FACTOR * log(rect.width);
-              hmat.draw_text("Illegal!", text_position, font_scale, color);
+              hmat.draw_text(drawtext, text_position, font_scale, color);
             }
 
             // Draw inner objects.
