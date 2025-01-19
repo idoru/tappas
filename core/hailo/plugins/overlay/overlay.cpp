@@ -474,12 +474,12 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
         case HAILO_USER_META:
         {
             HailoUserMetaPtr usermeta = std::dynamic_pointer_cast<HailoUserMeta>(obj);
-            if (usermeta->get_user_string() == "right-turn-count")
+            if (usermeta->get_user_string() == "illegal-crossing-count")
             {
                 auto font_scale = 0.5f;
                 auto shadow_position = cv::Point(3.f, 15.f);
                 auto text_position = cv::Point(shadow_position.x - 0.001f, shadow_position.y - 0.001f);
-                std::string text = "Illegal right turns: " + std::to_string(usermeta->get_user_int());
+                std::string text = "Illegal crossings: " + std::to_string(usermeta->get_user_int());
 
                 hmat.draw_text(text, shadow_position, font_scale, cv::Scalar(0, 0, 0));
                 hmat.draw_text(text, text_position, font_scale, cv::Scalar(255, 255, 255));

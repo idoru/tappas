@@ -114,7 +114,8 @@ void TurnTracker::track_crossing(int hailo_id, std::string from, std::string to,
   int vehicle_id = unique_id(vdet);
   //did we already mark it legal or not?
   if (priv->legal_crossing_vehicle_ids.find(vehicle_id) == priv->legal_crossing_vehicle_ids.end() &&
-      priv->illegal_crossing_vehicle_ids.find(vehicle_id) == priv->legal_crossing_vehicle_ids.end()) {
+      priv->illegal_crossing_vehicle_ids.find(vehicle_id) == priv->illegal_crossing_vehicle_ids.end()) {
+    //ok not marked, based on what we are told to track now, we're marking it legal or not.
     if (islegal) {
       if (priv->legal_crossing_vehicle_ids.find(vehicle_id) == priv->legal_crossing_vehicle_ids.end()) {
         priv->legal_crossing_vehicle_ids.insert(vehicle_id);
@@ -288,7 +289,7 @@ void filter(HailoROIPtr roi)
 
   HailoUserMetaPtr illegal_turn_count = std::make_shared<HailoUserMeta>(
       static_cast<int>(TurnTracker::GetInstance().get_illegal_crossing_count()),
-      "right-turn-count",
+      "illegal-crossing-count",
       0.0f
   );
   hailo_common::add_object(roi, illegal_turn_count);
