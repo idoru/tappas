@@ -10,14 +10,6 @@
 #include "config.hpp"
 #include "event_logger.hpp"
 
-static std::string ts_prefix() {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&time), "[%Y-%m-%d %H:%M:%S] ");
-    return ss.str();
-}
-
 std::mutex lastmutex_;
 std::mutex TurnTracker::mutex_;
 
@@ -108,7 +100,7 @@ static int unique_id(HailoDetectionPtr det) {
 
 void TurnTracker::track_crossing(int hailo_id, std::string from, std::string to, bool islegal) {
   #ifdef DEBUG
-  std::cout << ts_prefix() << "hid:" << hailo_id << " made illegal turn from" << from << " to " << to << "!" << std::endl;
+  std::cout << "hid:" << hailo_id << " made illegal turn from" << from << " to " << to << "!" << std::endl;
   #endif
   auto vdet = this->get_vehicle_det_for_hailo_det(hailo_id);
   int vehicle_id = unique_id(vdet);
@@ -119,12 +111,12 @@ void TurnTracker::track_crossing(int hailo_id, std::string from, std::string to,
     if (islegal) {
       if (priv->legal_crossing_vehicle_ids.find(vehicle_id) == priv->legal_crossing_vehicle_ids.end()) {
         priv->legal_crossing_vehicle_ids.insert(vehicle_id);
-        std::cout << ts_prefix() << "Vehicle ID " << vehicle_id << " made a legal crossing from" << from << " to " << to << ". New total: " << priv->legal_crossing_vehicle_ids.size() << std::endl;
+        std::cout << "Vehicle ID " << vehicle_id << " made a legal crossing from " << from << " to " << to << ". New total: " << priv->legal_crossing_vehicle_ids.size() << std::endl;
       }
     } else {
       if (priv->illegal_crossing_vehicle_ids.find(vehicle_id) == priv->illegal_crossing_vehicle_ids.end()) {
         priv->illegal_crossing_vehicle_ids.insert(vehicle_id);
-        std::cout << ts_prefix() << "Vehicle ID " << vehicle_id << " made an illegal crossing from" << from << " to " << to << ". New total: " << priv->illegal_crossing_vehicle_ids.size() << std::endl;
+        std::cout << "Vehicle ID " << vehicle_id << " made an illegal crossing from " << from << " to " << to << ". New total: " << priv->illegal_crossing_vehicle_ids.size() << std::endl;
       }
     }
   }
@@ -146,7 +138,7 @@ void TurnTracker::gc() {
     }
   }
   for (const auto &todelete : deletions) {
-    std::cout << ts_prefix() << "Delete vehicle id: " << unique_id(todelete) << std::endl;
+    std::cout << "Delete vehicle id: " << unique_id(todelete) << std::endl;
     priv->vehicle_dets.erase(todelete);
     for (const auto &mapping : priv->hailo_unique_id_vehicles) {
       if (mapping.second == todelete) {
@@ -154,7 +146,7 @@ void TurnTracker::gc() {
       }
     }
     for (const auto &idtodelete : hailo_id_deletions) {
-      std::cout << ts_prefix() << "  was hid:" << idtodelete << std::endl;
+      std::cout << "  was hid:" << idtodelete << std::endl;
       priv->hailo_unique_id_vehicles.erase(idtodelete);
     }
   }
@@ -214,7 +206,7 @@ void filter(HailoROIPtr roi)
         // iou match with existing:
         // add this hailo detection ID to the list associated with the matching vehicle detection
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-        std::cout << ts_prefix() << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
+        std::cout << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
       } else {
         bool marked = false;
         for (const auto& entry: Config::Get().GetEntries()) {
@@ -231,7 +223,7 @@ void filter(HailoROIPtr roi)
             //create a new vechile detection for this candidate
             TurnTracker::GetInstance().add_vehicle_det(vdet);
             TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-            std::cout << ts_prefix() << "hid:" << id << " seems new at " << entry.label << std::endl;
+            std::cout << "hid:" << id << " seems new at " << entry.label << std::endl;
             if (!EventLogger::getInstance().logDetection(id, entry.label)) {
                 std::cout << "ERROR posting detection event" << std::endl;
             }
@@ -244,7 +236,7 @@ void filter(HailoROIPtr roi)
       }
     } else {
       #ifdef DEBUG
-      std::cout << ts_prefix() << "hid:" << id << " in existing vehicle detection" << std::endl;
+      std::cout << "hid:" << id << " in existing vehicle detection" << std::endl;
       #endif
     }
 
@@ -305,7 +297,7 @@ static unsigned int dumpcount;
 void dump_dets(HailoROIPtr roi)
 {
     std::lock_guard<std::mutex> lock(lastmutex_);
-    std::cout << ts_prefix() << "taking snapshot " << dumpcount << std::endl;
+    std::cout << "taking snapshot " << dumpcount << std::endl;
     std::string filename = "/var/local/traffi/infs/result_" + std::to_string(dumpcount).insert(0, 5 - std::to_string(dumpcount).length(), '0') + ".json";
     std::ofstream outfile(filename);
 
