@@ -398,9 +398,9 @@ overlay_status_t draw_all(HailoMat &hmat, HailoROIPtr roi, float landmark_point_
             // Draw text
             std::string drawtext = "";
             if (detection->get_label() == "Oops!") {
-              drawtext = "Illegal!";
+              drawtext = "X";
             } else if (detection->get_label() == "OK") {
-              drawtext = "Legal";
+              drawtext = "";
             }
             if (drawtext != "") {
               auto text_position = cv::Point(rect.x - log(rect.width), rect.y - log(rect.width));

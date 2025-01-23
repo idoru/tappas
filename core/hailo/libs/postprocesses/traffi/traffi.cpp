@@ -209,6 +209,7 @@ void filter(HailoROIPtr roi)
         std::cout << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
       } else {
         bool marked = false;
+        std::string marklabel;
         for (const auto& entry: Config::Get().GetEntries()) {
           auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
           float yint = entry.p0y - (entry.p0x * slope);
@@ -217,20 +218,27 @@ void filter(HailoROIPtr roi)
             pass = !pass;
           }
           if (!pass) {
-            marked = true;
-            vdet = pair.second; //take the copied detection
-            pair.second->set_label(entry.label);
-            //create a new vechile detection for this candidate
-            TurnTracker::GetInstance().add_vehicle_det(vdet);
-            TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-            std::cout << "hid:" << id << " seems new at " << entry.label << std::endl;
-            if (!EventLogger::getInstance().logDetection(id, entry.label)) {
-                std::cout << "ERROR posting detection event" << std::endl;
+            if (marked == true) {
+              //already marked by another boundary.
+              //we likely detected something incorrectly off the road, so abort selecting this detection at all
+              marked == false;
+              break;
             }
-            break;
+            marked = true;
+            marklabel = entry.label;
           }
         }
-        if (!marked) {
+        if (marked) {
+          vdet = pair.second; //take the copied detection
+          pair.second->set_label(marklabel);
+          //create a new vechile detection for this candidate
+          TurnTracker::GetInstance().add_vehicle_det(vdet);
+          TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
+          std::cout << "hid:" << id << " seems new at " << marklabel << std::endl;
+          if (!EventLogger::getInstance().logDetection(id, marklabel)) {
+              std::cout << "ERROR posting detection event" << std::endl;
+          }
+        } else {
           continue;
         }
       }
