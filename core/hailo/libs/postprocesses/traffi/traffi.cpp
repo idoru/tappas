@@ -158,6 +158,22 @@ bool is_above(HailoBBox bbox, float y_intercept, float slope) {
   return y < (y_intercept + slope * x); //TOP LEFT is 0,0, BOTTOM RIGHT is 1.0,1.0
 }
 
+std::vector<Config::ConfigEntry> get_triggered_entries(HailoBBox bbox) {
+  std::vector<Config::ConfigEntry> matches;
+  for (const auto& entry: Config::Get().GetEntries()) {
+    auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
+    float yint = entry.p0y - (entry.p0x * slope);
+    bool pass = is_above(bbox, yint, slope);
+    if (!entry.testsbelow) {
+      pass = !pass;
+    }
+    if (!pass) {
+      matches.emplace_back(entry);
+    }
+  }
+  return matches;
+}
+
 static std::vector<HailoObjectPtr> lastDetections;
 
 // Default filter function
@@ -208,34 +224,16 @@ void filter(HailoROIPtr roi)
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
         std::cout << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
       } else {
-        bool marked = false;
-        std::string marklabel;
-        for (const auto& entry: Config::Get().GetEntries()) {
-          auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
-          float yint = entry.p0y - (entry.p0x * slope);
-          bool pass = is_above(pair.second->get_bbox(), yint, slope);
-          if (!entry.testsbelow) {
-            pass = !pass;
-          }
-          if (!pass) {
-            if (marked == true) {
-              //already marked by another boundary.
-              //we likely detected something incorrectly off the road, so abort selecting this detection at all
-              marked == false;
-              break;
-            }
-            marked = true;
-            marklabel = entry.label;
-          }
-        }
-        if (marked) {
+        auto trippedBoundaries = get_triggered_entries(pair.second->get_bbox());
+        if (trippedBoundaries.size()==1) {
+          auto boundary = trippedBoundaries.front();
           vdet = pair.second; //take the copied detection
-          pair.second->set_label(marklabel);
+          pair.second->set_label(boundary.label);
           //create a new vechile detection for this candidate
           TurnTracker::GetInstance().add_vehicle_det(vdet);
           TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-          std::cout << "hid:" << id << " seems new at " << marklabel << std::endl;
-          if (!EventLogger::getInstance().logDetection(id, marklabel)) {
+          std::cout << "hid:" << id << " seems new at " << boundary.label << std::endl;
+          if (!EventLogger::getInstance().logDetection(id, boundary.label)) {
               std::cout << "ERROR posting detection event" << std::endl;
           }
         } else {
@@ -249,34 +247,25 @@ void filter(HailoROIPtr roi)
     }
 
     auto new_bbox = pair.second->get_bbox();
-    if (vdet->get_label()!="Oops!" && vdet->get_label()!="OK") {
-      for (const auto& entry: Config::Get().GetEntries()) {
-        bool islegal = false;
-        //ignore if we are already from this side
-        if (vdet->get_label()==entry.label) {
+    auto vehicle_label = vdet->get_label();
+    //consider only vehicles who havent been assigned a crossing status
+    if (vehicle_label!="Oops!" && vehicle_label!="OK") {
+      auto trippedBoundaries = get_triggered_entries(new_bbox);
+      if (trippedBoundaries.size()==1) {
+        auto trippedBoundary = trippedBoundaries.front();
+        if (trippedBoundary.label == vehicle_label) {
           continue;
         }
-        auto it = std::find(entry.prohibited.begin(), entry.prohibited.end(), vdet->get_label());
-        if (it==entry.prohibited.end()) {
-          islegal = true;
+        auto prohibition_match = std::find(trippedBoundary.prohibited.begin(), trippedBoundary.prohibited.end(), vdet->get_label());
+        bool is_legal = (prohibition_match == trippedBoundary.prohibited.end());
+        if (!EventLogger::getInstance().logCrossing(id, trippedBoundary.label, vdet->get_label(), is_legal)) {
+            std::cout << "ERROR posting detection event" << std::endl;
         }
-        auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
-        float yint = entry.p0y - (entry.p0x * slope);
-        bool pass = is_above(new_bbox, yint, slope);
-        if (!entry.testsbelow) {
-          pass = !pass;
-        }
-        if (!pass) {
-          if (!EventLogger::getInstance().logCrossing(id, entry.label, vdet->get_label(), islegal)) {
-              std::cout << "ERROR posting detection event" << std::endl;
-          }
-          TurnTracker::GetInstance().track_crossing(id, vdet->get_label(), entry.label, islegal);
-          if (islegal) {
-            vdet->set_label("OK");
-          } else {
-            vdet->set_label("Oops!");
-          }
-          break;
+        TurnTracker::GetInstance().track_crossing(id, vehicle_label, trippedBoundary.label, is_legal);
+        if (is_legal) {
+          vdet->set_label("OK");
+        } else {
+          vdet->set_label("Oops!");
         }
       }
     }
