@@ -12,7 +12,7 @@
 class Config {
 public:
     struct ConfigEntry {
-        float p0x, p0y, p1x, p1y;
+        float p0x, p0y, p1x, p1y, slope, yint;
         cv::Scalar color;
         bool testsbelow;
         bool show, showcar;

@@ -140,6 +140,8 @@ std::optional<Config::ConfigEntry> Config::parseLine(const std::string& line) {
                 entry.prohibited.push_back(direction);
             }
         }
+        entry.slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
+        entry.yint = entry.p0y - (entry.p0x * entry.slope);
 
         return entry;
     } catch (const std::exception& e) {

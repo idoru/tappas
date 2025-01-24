@@ -152,22 +152,24 @@ void TurnTracker::gc() {
   }
 }
 
-bool is_above(HailoBBox bbox, float y_intercept, float slope) {
+inline bool is_below(const HailoBBox bbox, const float y_intercept, const float slope) {
   auto x = bbox.xmin() + (bbox.width()/2.f);
   auto y = bbox.ymin() + (bbox.height()/2.f);
-  return y < (y_intercept + slope * x); //TOP LEFT is 0,0, BOTTOM RIGHT is 1.0,1.0
+  return y > (y_intercept + slope * x); //TOP LEFT is 0,0, BOTTOM RIGHT is 1.0,1.0
 }
 
-std::vector<Config::ConfigEntry> get_triggered_entries(HailoBBox bbox) {
+inline bool test_boundary(const Config::ConfigEntry& bcfg, const HailoBBox bbox) {
+  bool below = is_below(bbox, bcfg.yint, bcfg.slope);
+  if (bcfg.testsbelow) {
+    return below;
+  }
+  return !below;
+}
+
+std::vector<Config::ConfigEntry> get_triggered_entries(const HailoBBox bbox) {
   std::vector<Config::ConfigEntry> matches;
   for (const auto& entry: Config::Get().GetEntries()) {
-    auto slope = (entry.p1y - entry.p0y) / (entry.p1x - entry.p0x);
-    float yint = entry.p0y - (entry.p0x * slope);
-    bool pass = is_above(bbox, yint, slope);
-    if (!entry.testsbelow) {
-      pass = !pass;
-    }
-    if (!pass) {
+    if (test_boundary(entry, bbox)) {
       matches.emplace_back(entry);
     }
   }
