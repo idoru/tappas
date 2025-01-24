@@ -95,7 +95,9 @@ bool EventLogger::curl(const std::string& data) {
     if (res == CURLE_OK) {
         long http_code;
         res = curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &http_code);
-        std::cout << "HTTP POST result " << http_code << std::endl;
+        if (res == CURLE_OK && http_code / 100 != 2) {
+          std::cout << "POST event FAILED HTTP Status: " << http_code << " DATA: " << data << std::endl;
+        }
         return (res == CURLE_OK && http_code / 100 == 2);
     };
     return false;

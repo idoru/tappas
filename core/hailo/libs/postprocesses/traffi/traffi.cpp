@@ -99,9 +99,6 @@ static int unique_id(HailoDetectionPtr det) {
 }
 
 void TurnTracker::track_crossing(int hailo_id, std::string from, std::string to, bool islegal) {
-  #ifdef DEBUG
-  std::cout << "hid:" << hailo_id << " made illegal turn from" << from << " to " << to << "!" << std::endl;
-  #endif
   auto vdet = this->get_vehicle_det_for_hailo_det(hailo_id);
   int vehicle_id = unique_id(vdet);
   //did we already mark it legal or not?
@@ -138,7 +135,9 @@ void TurnTracker::gc() {
     }
   }
   for (const auto &todelete : deletions) {
+    #ifdef DEBUG
     std::cout << "Delete vehicle id: " << unique_id(todelete) << std::endl;
+    #endif
     priv->vehicle_dets.erase(todelete);
     for (const auto &mapping : priv->hailo_unique_id_vehicles) {
       if (mapping.second == todelete) {
@@ -146,7 +145,9 @@ void TurnTracker::gc() {
       }
     }
     for (const auto &idtodelete : hailo_id_deletions) {
+      #ifdef DEBUG
       std::cout << "  was hid:" << idtodelete << std::endl;
+      #endif
       priv->hailo_unique_id_vehicles.erase(idtodelete);
     }
   }
@@ -224,7 +225,7 @@ void filter(HailoROIPtr roi)
         // iou match with existing:
         // add this hailo detection ID to the list associated with the matching vehicle detection
         TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-        std::cout << "hid:" << id << " mapping to existing vehicle id: " << unique_id(vdet) << std::endl;
+        std::cout << "NEW hid:" << id << " is existing vehicle: " << unique_id(vdet) << std::endl;
       } else {
         auto trippedBoundaries = get_triggered_entries(pair.second->get_bbox());
         if (trippedBoundaries.size()==1) {
@@ -234,7 +235,7 @@ void filter(HailoROIPtr roi)
           //create a new vechile detection for this candidate
           TurnTracker::GetInstance().add_vehicle_det(vdet);
           TurnTracker::GetInstance().map_hailo_id_to_vehicle_det(id, vdet);
-          std::cout << "hid:" << id << " seems new at " << boundary.label << std::endl;
+          std::cout << "NEW hid:" << id << " is new vehicle: " << unique_id(vdet) << " at " << boundary.label << std::endl;
           if (!EventLogger::getInstance().logDetection(id, boundary.label)) {
               std::cout << "ERROR posting detection event" << std::endl;
           }
