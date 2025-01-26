@@ -18,11 +18,25 @@ EventLogger& EventLogger::getInstance() {
 }
 
 EventLogger::EventLogger() : running_(true) {
+    host_ = getEnvOrDefault("EVENT_DB_HOST", "http://localhost:8086");
+    org_ = getEnvOrDefault("EVENT_DB_ORG", "traffi");
+    bucket_ = getEnvOrDefault("EVENT_DB_BUCKET", "traffi");
+    token_ = getEnvOrDefault("EVENT_DB_TOKEN", "");
+
+    if (token_.empty()) {
+        throw std::runtime_error("EVENT_DB_TOKEN environment variable must be set");
+    }
+
     curl_ = curl_easy_init();
     if (!curl_) {
         throw std::runtime_error("Failed to initialize CURL");
     }
     worker_thread_ = std::thread(&EventLogger::processEvents, this);
+}
+
+std::string EventLogger::getEnvOrDefault(const char* env_var, const std::string& default_val) {
+    const char* val = std::getenv(env_var);
+    return val ? std::string(val) : default_val;
 }
 
 EventLogger::~EventLogger() {

@@ -30,14 +30,15 @@ private:
     void processEvents();
     bool sendEvent(const LogEvent& event);
     void enqueueEvent(const std::string& data);
+    std::string getEnvOrDefault(const char* env_var, const std::string& default_val);
 
     static std::unique_ptr<EventLogger> instance_;
     static std::mutex mutex_;
 
-    std::string host_{"http://localhost:8086"};
-    std::string org_{"traffi"};
-    std::string bucket_{"traffi"};
-    std::string token_{"GrdnCU9nnJ_WLXk6yPtRup18-qYUDLL923tzGQz4zjvNLNoM1w1UbKtZZL9-hMOOz3YoC1rILbi2nufy4UQ61g=="};
+    std::string host_;
+    std::string org_;
+    std::string bucket_;
+    std::string token_;
 
     std::queue<LogEvent> event_queue_;
     std::mutex queue_mutex_;
