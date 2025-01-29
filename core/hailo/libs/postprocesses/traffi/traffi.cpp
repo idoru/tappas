@@ -254,7 +254,9 @@ void filter(HailoROIPtr roi)
     //consider only vehicles who havent been assigned a crossing status
     if (vehicle_label!="Oops!" && vehicle_label!="OK") {
       auto trippedBoundaries = get_triggered_entries(new_bbox);
-      if (trippedBoundaries.size()==1) {
+      if (trippedBoundaries.size() > 1) {
+        continue;
+      } else if (trippedBoundaries.size()==1) {
         auto trippedBoundary = trippedBoundaries.front();
         if (trippedBoundary.label == vehicle_label) {
           continue;
