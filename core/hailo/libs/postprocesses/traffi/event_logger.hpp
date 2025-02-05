@@ -24,6 +24,7 @@ public:
     bool logDetection(int vehicle_id, const std::string& side);
     bool logCrossing(int vehicle_id, const std::string& side,
                     const std::string& origin, bool legal);
+    bool updateReportData(const std::string query, const std::string reportPath);
 
 private:
     EventLogger();
