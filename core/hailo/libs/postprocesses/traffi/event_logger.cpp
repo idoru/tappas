@@ -57,8 +57,8 @@ EventLogger::~EventLogger() {
 
 bool EventLogger::logDetection(int vehicle_id, const std::string& side) {
     std::stringstream ss;
-    ss << "detection,side=\"" << side
-       << "\" vehicle_id=" << vehicle_id;
+    ss << "detection,side=" << side
+       << " vehicle_id=" << vehicle_id;
 
     enqueueEvent(ss.str());
     return true;
@@ -67,9 +67,9 @@ bool EventLogger::logDetection(int vehicle_id, const std::string& side) {
 bool EventLogger::logCrossing(int vehicle_id, const std::string& side,
                             const std::string& origin, bool legal) {
     std::stringstream ss;
-    ss << "crossing,side=\"" << side
-       << "\",origin=\"" << origin
-       << "\",legal=" << (legal ? "true" : "false")
+    ss << "crossing,side=" << side
+       << ",origin=" << origin
+       << ",legal=" << (legal ? "true" : "false")
        << " vehicle_id=" << vehicle_id;
 
     enqueueEvent(ss.str());
