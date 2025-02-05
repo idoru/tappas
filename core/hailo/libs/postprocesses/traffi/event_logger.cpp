@@ -143,7 +143,6 @@ bool EventLogger::sendEvent(const LogEvent& event) {
 
     CURLcode res = curl_easy_perform(curl_);
     curl_slist_free_all(headers);
-
     if (res == CURLE_OK) {
       long http_code;
       res = curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &http_code);
@@ -152,8 +151,10 @@ bool EventLogger::sendEvent(const LogEvent& event) {
                     << " DATA: " << data << std::endl;
       }
       if (res == CURLE_OK && http_code / 100 == 2) {
-        if (event.data.length() > 9 && event.data.substr(0, 9) == "crossing,") {
-          updateReportData(histoQuery, "/var/local/traffi/www/stats.csv");
+        if (event.data.length() >= 9 && event.data[0] == 'c') {//something was going weird with string checking, but this is enough to distinguish between detections and crossings
+          if (!updateReportData(histoQuery, "/var/local/traffi/www/stats.csv")) {
+            std::cout << "ERROR updating crossing report" << std::endl;
+          }
         }
         return true;
       }
@@ -180,7 +181,7 @@ bool EventLogger::updateReportData(const std::string query, const std::string re
     headers = curl_slist_append(headers, "Content-Type: application/vnd.flux");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, query.c_str());
-    curl_easy_setopt(curl_, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
 
     std::string response_data;
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteDataCallback);
