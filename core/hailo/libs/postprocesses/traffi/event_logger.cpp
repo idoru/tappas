@@ -164,14 +164,13 @@ bool EventLogger::sendEvent(const LogEvent& event) {
 }
 
 bool EventLogger::updateReportData(const std::string query, const std::string reportPath) {
-    CURL* curl = curl_easy_init();
-    if (!curl) {
+    if (!curl_) {
         std::cout << "Failed to initialize CURL for updateReportData" << std::endl;
         return false;
     }
 
     std::string url = host_ + "/api/v2/query?org=traffi";
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
 
 
     struct curl_slist* headers = nullptr;
@@ -179,40 +178,36 @@ bool EventLogger::updateReportData(const std::string query, const std::string re
     headers = curl_slist_append(headers, authHeader.c_str());
     headers = curl_slist_append(headers, "Accept: application/csv");
     headers = curl_slist_append(headers, "Content-Type: application/vnd.flux");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, query.c_str());
-    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, query.c_str());
+    curl_easy_setopt(curl_, CURLOPT_CUSTOMREQUEST, "POST");
 
     std::string response_data;
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteDataCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteDataCallback);
+    curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &response_data);
 
-    CURLcode res = curl_easy_perform(curl);
+    CURLcode res = curl_easy_perform(curl_);
     if (res != CURLE_OK) {
         std::cout << "POST query failed: " << curl_easy_strerror(res) << std::endl;
         curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
         return false;
     }
 
     long http_code = 0;
-    res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    res = curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &http_code);
     if (res != CURLE_OK) {
         std::cout << "Failed to get HTTP response code: " << curl_easy_strerror(res) << std::endl;
         curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
         return false;
     }
     if (http_code / 100 != 2) {
         std::cout << "POST query FAILED HTTP Status: " << http_code
                   << " Query: " << query << std::endl;
         curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
         return false;
     }
 
     curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
 
     {
       static std::mutex file_write_mutex;
