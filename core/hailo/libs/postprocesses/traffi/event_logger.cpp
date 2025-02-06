@@ -125,6 +125,7 @@ bool EventLogger::sendEvent(const LogEvent& event) {
         return false;
     }
 
+    curl_easy_reset(curl_);
     auto nanos = std::chrono::duration_cast<std::chrono::seconds>(
         event.timestamp.time_since_epoch()).count();
 
@@ -169,6 +170,7 @@ bool EventLogger::updateReportData(const std::string query, const std::string re
         return false;
     }
 
+    curl_easy_reset(curl_);
     std::string url = host_ + "/api/v2/query?org=traffi";
     curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
 
@@ -226,5 +228,26 @@ bool EventLogger::updateReportData(const std::string query, const std::string re
       }
       outfile.close();
     }
+
+    curl_easy_reset(curl_);
+    std::string publish_url = "http://localhost/publish";
+    curl_easy_setopt(curl_, CURLOPT_URL, publish_url.c_str());
+    curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, response_data.c_str());
+    curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl_, CURLOPT_CUSTOMREQUEST, "POST");
+
+    res = curl_easy_perform(curl_);
+    if (res != CURLE_OK) {
+        std::cout << "POST to /publish failed: " << curl_easy_strerror(res) << std::endl;
+        return false;
+    }
+
+    http_code = 0;
+    res = curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &http_code);
+    if (res != CURLE_OK || http_code / 100 != 2) {
+        std::cout << "POST to /publish FAILED HTTP Status: " << http_code << std::endl;
+        return false;
+    }
+
     return true;
 }
