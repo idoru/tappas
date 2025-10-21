@@ -49,6 +49,11 @@ HailoDetectionPtr TurnTracker::get_vehicle_det_matching_hailo_det_iou(HailoDetec
   for (const auto &pair : priv->vehicle_dets) {
     auto det = pair.first;
     auto b = det->get_bbox();
+    auto width_r = a.width() / b.width();
+    auto height_r = a.height() / b.height();
+    if (width_r < 0.5f || width_r > 2.f || height_r < 0.5f || height_r > 2.f) {
+      continue;
+    }
     if ( ((a.xmin() < b.xmin()) && (a.xmax() > b.xmax()))
        || ((b.xmin() < a.xmin()) && (b.xmax() > a.xmax())) )
        {

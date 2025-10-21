@@ -10,7 +10,8 @@ static const std::string histoQuery = "from(bucket: \"traffi\")"
   "|> range(start: -24h)"
   "|> filter(fn: (r) => r._measurement == \"crossing\")"
   "|> group(columns: [\"origin\", \"side\", \"legal\"])"
-  "|> aggregateWindow(every: 1h, fn: count, createEmpty: true)";
+  "|> aggregateWindow(every: 1h, fn: count, createEmpty: true)"
+  "|> drop(columns: [\"_start\", \"_stop\"])";
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
     return size * nmemb;
